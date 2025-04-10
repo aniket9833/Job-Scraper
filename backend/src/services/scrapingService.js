@@ -21,23 +21,21 @@ class ScrapingService {
       const savedJobs = [];
 
       for (const jobData of scrapedJobs) {
+        jobData.uniqueId = `${jobData.company}-${
+          jobData.title
+        }-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
         try {
-          // Check if job already exists by URL
-          const existingJob = await Job.findOne({ url: jobData.url });
+          const job = new Job(jobData);
+          await job.save();
+          savedJobs.push(job);
 
-          if (!existingJob) {
-            // Create new job
-            const job = new Job(jobData);
-            await job.save();
-            savedJobs.push(job);
-
-            // Update keyword counts
-            for (const keyword of jobData.keywords) {
-              await Keyword.findOneAndUpdate(
-                { text: keyword },
-                { $inc: { count: 1 } }
-              );
-            }
+          // Update keyword counts
+          for (const keyword of jobData.keywords) {
+            await Keyword.findOneAndUpdate(
+              { text: keyword },
+              { $inc: { count: 1 } }
+            );
           }
         } catch (error) {
           console.error(`Error saving job: ${error.message}`);
@@ -87,7 +85,8 @@ class ScrapingService {
               results.domains++;
               return jobs;
             })
-            .catch(() => {
+            .catch((error) => {
+              console.error(`Error in batch operation: ${error.message}`);
               results.errors++;
               return [];
             })

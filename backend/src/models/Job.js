@@ -29,6 +29,12 @@ const jobSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+
+    link: {
+      type: String,
+      // Remove the unique constraint or ensure it's never null
+      sparse: true, // This makes the unique index ignore null values
+    },
     sourceUrl: {
       type: String,
       required: true,
@@ -53,19 +59,15 @@ const jobSchema = new mongoose.Schema(
 );
 
 // Create a text index for full-text search
-jobSchema.index({
-  title: 'text',
-  company: 'text',
-  description: 'text',
-  location: 'text',
-});
+jobSchema.index({ url: 1, title: 1, company: 1 }, { unique: true });
 
-// Add a method to check if a job matches certain keywords
-jobSchema.methods.matchesKeywords = function (keywords) {
-  const jobText =
-    `${this.title} ${this.company} ${this.description}`.toLowerCase();
-  return keywords.some((keyword) => jobText.includes(keyword.toLowerCase()));
-};
+jobSchema.pre('save', function (next) {
+  // If link is null, generate a pseudo-unique identifier
+  if (!this.link) {
+    this.link = `no-link-${this._id}-${Date.now()}`;
+  }
+  next();
+});
 
 const Job = mongoose.model('Job', jobSchema);
 
